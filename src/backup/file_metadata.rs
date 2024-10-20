@@ -1,14 +1,11 @@
-use std::{
-    collections::HashMap,
-    hash::{DefaultHasher, Hash, Hasher},
-};
+use std::{collections::HashMap, hash::Hash};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Hash)]
 pub struct FileChunk {
-    pub hash: u64,
+    pub hash: String,
     pub offset: u64,
     pub length: usize,
 }
@@ -17,21 +14,23 @@ pub struct FileChunk {
 pub struct FileMetadata {
     pub root_path: String,
     // hash -> FileChunk
-    pub chunks: HashMap<u64, FileChunk>,
+    pub chunks: HashMap<String, FileChunk>,
 }
 
 impl FileMetadata {
-    pub fn fingerprint(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
+    pub fn fingerprint(&self) -> String {
+        let mut hasher = blake3::Hasher::new();
+
         self.chunks
             .iter()
             .sorted_by(|(_, file_chunk_a), (_, file_chunk_b)| {
                 Ord::cmp(&file_chunk_a.offset, &file_chunk_b.offset)
             })
-            .map(|(hash, _)| hash)
-            .collect::<Vec<&u64>>()
-            .hash(&mut hasher);
-        hasher.finish()
+            .for_each(|(hash, _)| {
+                hasher.update(hash.to_string().as_bytes());
+            });
+
+        hasher.finalize().to_hex().to_string()
     }
 }
 
