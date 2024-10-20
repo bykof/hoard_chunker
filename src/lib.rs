@@ -116,3 +116,95 @@ pub fn store_chunk(chunk: &ChunkData, output_path: &Path) {
             .expect("cannot write file");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_metadata_fingerprint_equal() {
+        let hashes = Vec::from([123, 456, 789]);
+        let mut chunks: HashMap<u64, FileChunk> = HashMap::new();
+        let mut second_chunks: HashMap<u64, FileChunk> = HashMap::new();
+
+        for (index, hash) in hashes.iter().enumerate() {
+            chunks.insert(
+                hash.clone(),
+                FileChunk {
+                    hash: hash.clone(),
+                    offset: index.clone() as u64,
+                    length: 8,
+                },
+            );
+        }
+
+        for (index, hash) in hashes.iter().enumerate().rev() {
+            second_chunks.insert(
+                hash.clone(),
+                FileChunk {
+                    hash: hash.clone(),
+                    offset: index.clone() as u64,
+                    length: 8,
+                },
+            );
+        }
+
+        let file_metadata = FileMetadata {
+            root_path: "".to_string(),
+            chunks: chunks,
+        };
+
+        let second_file_metadata = FileMetadata {
+            root_path: "".to_string(),
+            chunks: second_chunks,
+        };
+        assert_eq!(
+            file_metadata.fingerprint(),
+            second_file_metadata.fingerprint()
+        )
+    }
+
+    #[test]
+    fn file_metadata_fingerprint_not_equal() {
+        let hashes = Vec::from([123, 456, 789]);
+        let other_hashes = Vec::from([234, 567, 890]);
+        let mut chunks: HashMap<u64, FileChunk> = HashMap::new();
+        let mut second_chunks: HashMap<u64, FileChunk> = HashMap::new();
+
+        for (index, hash) in hashes.iter().enumerate() {
+            chunks.insert(
+                hash.clone(),
+                FileChunk {
+                    hash: hash.clone(),
+                    offset: index.clone() as u64,
+                    length: 8,
+                },
+            );
+        }
+
+        for (index, hash) in other_hashes.iter().enumerate() {
+            second_chunks.insert(
+                hash.clone(),
+                FileChunk {
+                    hash: hash.clone(),
+                    offset: index.clone() as u64,
+                    length: 8,
+                },
+            );
+        }
+
+        let file_metadata = FileMetadata {
+            root_path: "".to_string(),
+            chunks: chunks,
+        };
+
+        let second_file_metadata = FileMetadata {
+            root_path: "".to_string(),
+            chunks: second_chunks,
+        };
+        assert_ne!(
+            file_metadata.fingerprint(),
+            second_file_metadata.fingerprint()
+        )
+    }
+}
