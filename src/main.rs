@@ -1,14 +1,21 @@
+pub mod backup;
+
 use core::str;
 use std::{collections::HashMap, fs::File, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
 use fastcdc::v2020::*;
-use hoard_chunker::{store_chunk, BackupMetadata, Chunk, FileChunk, FileMetadata};
 use log::{error, info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 use walkdir::WalkDir;
 
+use backup::{
+    backup_metadata::BackupMetadata,
+    chunk_table::Chunk,
+    file_metadata::{FileChunk, FileMetadata},
+};
+use hoard_chunker::store_chunk;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
