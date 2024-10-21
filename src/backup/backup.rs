@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use fastcdc::v2020::{ChunkData, StreamCDC};
-use log::{debug, error, info};
+use log::{debug, info};
 use walkdir::WalkDir;
 
 use crate::backup::{
@@ -14,18 +14,20 @@ use crate::backup::{
     symlink::Symlink,
 };
 
-use super::backup_config::BackupConfig;
+use super::{backup_config::BackupConfig, chunk_table::Chunk, chunk_writer::ChunkWriter};
 
-pub struct Backup {
-    backup_config: BackupConfig,
+pub struct Backup<'a> {
+    backup_config: &'a BackupConfig,
     backup_metadata: BackupMetadata,
+    chunk_writer: &'a ChunkWriter<'a>,
 }
 
-impl Backup {
-    pub fn new(backup_config: BackupConfig) -> Backup {
+impl Backup<'_> {
+    pub fn new<'a>(backup_config: &'a BackupConfig, chunk_writer: &'a ChunkWriter) -> Backup<'a> {
         Backup {
             backup_config,
             backup_metadata: BackupMetadata::new(),
+            chunk_writer,
         }
     }
 
@@ -39,12 +41,22 @@ impl Backup {
             self.backup_config.max_size(),
         );
 
-        for result in chunker {
-            let chunk_data: ChunkData = result.expect("failed to read chunk");
-            let chunk = self
+        for chunk_data_result in chunker {
+            let chunk_data: ChunkData = chunk_data_result?;
+            let chunk = Chunk::from(&chunk_data);
+
+            if !self
                 .backup_metadata
                 .chunk_table
-                .store_chunk_data(&chunk_data)?;
+                .chunk_map
+                .contains_key(&chunk.hash)
+            {
+                self.chunk_writer.write(&chunk, &chunk_data)?;
+                self.backup_metadata
+                    .chunk_table
+                    .chunk_map
+                    .insert(chunk.hash.clone(), chunk.clone());
+            }
 
             file_metadata.chunks.insert(
                 chunk.hash.clone(),
@@ -85,10 +97,10 @@ impl Backup {
     }
 
     pub fn backup(&mut self) -> Result<()> {
+        self.walk()?;
+
         let old_backup_metadata =
             BackupMetadata::deserialize(Path::new(&self.backup_config.output_path))?;
-
-        self.walk()?;
 
         for (file_path, file_metadata) in self.backup_metadata.file_metadatas.iter() {
             if let Some(old_file_metadata) = old_backup_metadata.file_metadatas.get(file_path) {

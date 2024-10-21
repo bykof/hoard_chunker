@@ -1,5 +1,11 @@
 use std::path::Path;
 
+use anyhow::Result;
+use opendal::{
+    layers::{LoggingLayer, RetryLayer},
+    services::Fs,
+    BlockingOperator, Operator,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -23,5 +29,15 @@ impl BackupConfig {
 
     pub fn max_size(&self) -> u32 {
         return self.average_size / 4;
+    }
+
+    pub fn build_operator(&self) -> Result<BlockingOperator> {
+        let builder = Fs::default().root("./");
+
+        Ok(Operator::new(builder)?
+            .layer(LoggingLayer::default())
+            .layer(RetryLayer::new())
+            .finish()
+            .blocking())
     }
 }

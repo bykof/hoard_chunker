@@ -1,13 +1,8 @@
 use core::str;
-use std::{
-    collections::HashMap,
-    fs,
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
-use anyhow::{Ok, Result};
 use fastcdc::v2020::ChunkData;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -23,14 +18,10 @@ pub struct ChunkTable {
 }
 
 impl ChunkTable {
-    pub fn store_chunk_data(&mut self, chunk_data: &ChunkData) -> Result<Chunk> {
-        let chunk: Chunk = Chunk::from(chunk_data);
-
-        if !self.chunk_map.contains_key(&chunk.hash) {
-            // chunk.save(&chunk_data.data, output_path);
-            self.chunk_map.insert(chunk.hash.clone(), chunk.clone());
+    pub fn new() -> ChunkTable {
+        ChunkTable {
+            chunk_map: HashMap::new(),
         }
-        Ok(chunk)
     }
 }
 
@@ -44,28 +35,13 @@ impl Chunk {
             .map(|chunk| chunk.iter().collect())
             .collect();
     }
-
-    pub fn save(&self, data: &[u8], output_path: &Path) {
-        let mut source_path = PathBuf::from(output_path);
-        for item in self.split_hash() {
-            source_path.push(item);
-        }
-
-        if let Some(parent) = source_path.parent() {
-            // Create the directories "as/df/gh"
-            fs::create_dir_all(parent).expect("cannot create directories");
-
-            let mut file = fs::File::create(source_path).expect("cannot write the file");
-            file.write_all(data).expect("cannot write file");
-        }
-    }
 }
 
 impl From<&ChunkData> for Chunk {
-    fn from(value: &ChunkData) -> Self {
+    fn from(chunk_data: &ChunkData) -> Self {
         Chunk {
-            hash: blake3::hash(&value.data).to_hex().to_string(),
-            length: value.length,
+            hash: blake3::hash(&chunk_data.data).to_hex().to_string(),
+            length: chunk_data.length,
         }
     }
 }
