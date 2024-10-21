@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::Result;
 use fastcdc::v2020::{ChunkData, StreamCDC};
-use indicatif::ProgressBar;
 use log::{debug, error, info};
 use walkdir::WalkDir;
 
@@ -86,33 +85,27 @@ impl Backup {
     }
 
     pub fn backup(&mut self) -> Result<()> {
-        let old_backup_metadata_result =
-            BackupMetadata::deserialize(Path::new(&self.backup_config.output_path));
+        let old_backup_metadata =
+            BackupMetadata::deserialize(Path::new(&self.backup_config.output_path))?;
 
         self.walk()?;
 
-        if old_backup_metadata_result.is_ok() {
-            for (file_path, file_metadata) in self.backup_metadata.file_metadatas.iter() {
-                let old_backup_metadata = old_backup_metadata_result.as_ref().unwrap();
+        for (file_path, file_metadata) in self.backup_metadata.file_metadatas.iter() {
+            if let Some(old_file_metadata) = old_backup_metadata.file_metadatas.get(file_path) {
+                if file_metadata.fingerprint() != old_file_metadata.fingerprint() {
+                    info!("Files: {} are not identical", file_path);
 
-                if let Some(old_file_metadata) = old_backup_metadata.file_metadatas.get(file_path) {
-                    if file_metadata.fingerprint() != old_file_metadata.fingerprint() {
-                        info!("Files: {} are not identical", file_path);
+                    let chunks: Vec<_> = file_metadata
+                        .chunks
+                        .keys()
+                        .filter(|key| !old_file_metadata.chunks.contains_key(*key))
+                        .collect();
 
-                        let chunks: Vec<_> = file_metadata
-                            .chunks
-                            .keys()
-                            .filter(|key| !old_file_metadata.chunks.contains_key(*key))
-                            .collect();
-
-                        info!("New chunks: {:?}", chunks);
-                    } else {
-                        // info!("File: {} are identical", file_path);
-                    }
+                    info!("New chunks: {:?}", chunks);
+                } else {
+                    // info!("File: {} are identical", file_path);
                 }
             }
-        } else {
-            error!("{:?}", old_backup_metadata_result.err())
         }
 
         self.backup_metadata

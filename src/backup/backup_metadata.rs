@@ -41,7 +41,13 @@ impl BackupMetadata {
     }
 
     pub fn deserialize(directory_path: &Path) -> Result<BackupMetadata> {
-        let file = fs::File::open(directory_path.join(Self::BACKUP_METADATA_FILE))?;
+        let path = directory_path.join(Self::BACKUP_METADATA_FILE);
+
+        if !path.exists() {
+            return Ok(BackupMetadata::new());
+        }
+
+        let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         return Ok(serde_json::from_reader::<BufReader<File>, BackupMetadata>(
             reader,
