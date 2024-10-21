@@ -16,15 +16,18 @@ use crate::backup::{
 
 use super::{backup_config::BackupConfig, chunk_table::Chunk, chunk_writer::ChunkWriter};
 
-pub struct Backup<'a> {
+pub struct BackupService<'a> {
     backup_config: &'a BackupConfig,
     backup_metadata: BackupMetadata,
     chunk_writer: &'a ChunkWriter<'a>,
 }
 
-impl Backup<'_> {
-    pub fn new<'a>(backup_config: &'a BackupConfig, chunk_writer: &'a ChunkWriter) -> Backup<'a> {
-        Backup {
+impl BackupService<'_> {
+    pub fn new<'a>(
+        backup_config: &'a BackupConfig,
+        chunk_writer: &'a ChunkWriter,
+    ) -> BackupService<'a> {
+        BackupService {
             backup_config,
             backup_metadata: BackupMetadata::new(),
             chunk_writer,

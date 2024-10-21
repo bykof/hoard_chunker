@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 
-use backup::{backup::Backup, backup_config::BackupConfig, chunk_writer::ChunkWriter};
+use backup::{backup::BackupService, backup_config::BackupConfig, chunk_writer::ChunkWriter};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
         }) => {
             let backup_config = &BackupConfig::new(average_size, input_path, output_path);
             let chunk_writer = ChunkWriter::new(backup_config);
-            let mut backup = Backup::new(backup_config, &chunk_writer);
+            let mut backup = BackupService::new(backup_config, &chunk_writer);
             backup.backup()?;
         }
         Some(Commands::Restore {
