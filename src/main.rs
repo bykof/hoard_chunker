@@ -1,21 +1,15 @@
 pub mod backup;
 
 use core::str;
-use std::{collections::HashMap, fs::File, path::PathBuf};
+use std::path::PathBuf;
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use fastcdc::v2020::*;
-use log::{error, info, LevelFilter};
+use log::{info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
-use walkdir::WalkDir;
 
-use backup::{
-    backup::{Backup, BackupConfig},
-    backup_metadata::BackupMetadata,
-    chunk_table::Chunk,
-    file_metadata::{FileChunk, FileMetadata},
-};
+use backup::{backup::Backup, backup_config::BackupConfig};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -29,7 +23,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Scan {
+    Backup {
         #[arg(short, long)]
         input_path: PathBuf,
 
@@ -45,7 +39,7 @@ enum Commands {
     },
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     let cli = Cli::parse();
     // 16KB
     let average_size = cli.average_size.unwrap_or(1024 * 16);
@@ -61,15 +55,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::set_max_level(LevelFilter::Debug);
     match &cli.command {
-        Some(Commands::Scan {
+        Some(Commands::Backup {
             input_path,
             output_path,
         }) => {
-            let backup = Backup::new(BackupConfig {
-                average_size,
-                input_path,
-                output_path,
-            });
+            let backup_config = BackupConfig::new(average_size, input_path, output_path);
+            let mut backup = Backup::new(backup_config);
             backup.backup()?;
         }
         Some(Commands::Restore {

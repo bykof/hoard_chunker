@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::{Ok, Result};
 use fastcdc::v2020::ChunkData;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,18 @@ pub struct Chunk {
 pub struct ChunkTable {
     // chunk hash -> Chunk
     pub chunk_map: HashMap<String, Chunk>,
+}
+
+impl ChunkTable {
+    pub fn store_chunk_data(&mut self, chunk_data: &ChunkData) -> Result<Chunk> {
+        let chunk: Chunk = Chunk::from(chunk_data);
+
+        if !self.chunk_map.contains_key(&chunk.hash) {
+            // chunk.save(&chunk_data.data, output_path);
+            self.chunk_map.insert(chunk.hash.clone(), chunk.clone());
+        }
+        Ok(chunk)
+    }
 }
 
 impl Chunk {

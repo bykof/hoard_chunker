@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.90"
 blake3 = "1.5.4"
 bytebuffer = "2.3.0"
 clap = { version = "4.5.20", features = ["derive"] }
