@@ -25,18 +25,6 @@ impl ChunkTable {
     }
 }
 
-impl Chunk {
-    pub fn split_hash(&self) -> Vec<String> {
-        return self
-            .hash
-            .chars()
-            .collect::<Vec<char>>()
-            .chunks(2)
-            .map(|chunk| chunk.iter().collect())
-            .collect();
-    }
-}
-
 impl From<&ChunkData> for Chunk {
     fn from(chunk_data: &ChunkData) -> Self {
         Chunk {

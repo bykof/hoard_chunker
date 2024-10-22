@@ -1,10 +1,11 @@
 use std::{
     fs::{self, File},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use anyhow::Result;
 use fastcdc::v2020::{ChunkData, StreamCDC};
+use itertools::Itertools;
 use log::{debug, info};
 use walkdir::WalkDir;
 
@@ -14,22 +15,26 @@ use crate::backup::{
     symlink::Symlink,
 };
 
-use super::{backup_config::BackupConfig, chunk_table::Chunk, chunk_writer::ChunkWriter};
+use super::{
+    backup_config::BackupConfig, backup_hash::split_hash_as_path, chunk_table::Chunk,
+    chunk_writer::ChunkWriter,
+};
 
 pub struct BackupService<'a> {
     backup_config: &'a BackupConfig,
-    backup_metadata: BackupMetadata,
     chunk_writer: &'a ChunkWriter<'a>,
+    backup_metadata: &'a mut BackupMetadata,
 }
 
 impl BackupService<'_> {
     pub fn new<'a>(
         backup_config: &'a BackupConfig,
         chunk_writer: &'a ChunkWriter,
+        backup_metadata: &'a mut BackupMetadata,
     ) -> BackupService<'a> {
         BackupService {
             backup_config,
-            backup_metadata: BackupMetadata::new(),
+            backup_metadata,
             chunk_writer,
         }
     }
@@ -139,6 +144,29 @@ impl BackupService<'_> {
                 / 1024
         );
 
+        Ok(())
+    }
+
+    pub fn restore(&self) -> Result<()> {
+        let operator = self.backup_config.build_operator()?;
+        for (output_file_path, file_metadata) in self.backup_metadata.file_metadatas.iter() {
+            debug!("Restoring: {}", output_file_path);
+            let moved_output_filepath =
+                PathBuf::from(&self.backup_config.output_path).join(output_file_path);
+
+            let mut writer = operator.writer(&moved_output_filepath.display().to_string())?;
+            for (hash, _) in file_metadata
+                .chunks
+                .iter()
+                .sorted_by(|(_, a), (_, b)| Ord::cmp(&a.offset, &b.offset))
+            {
+                let chunk_filepath =
+                    split_hash_as_path(self.backup_config.input_path.clone(), hash.to_string());
+                let chunk_data = fs::read(chunk_filepath)?;
+                writer.write(chunk_data)?;
+            }
+            writer.close()?;
+        }
         Ok(())
     }
 }

@@ -1,15 +1,19 @@
 pub mod backup;
 
 use core::str;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+use hoard_chunker::DEFAULT_AVERAGE_SIZE;
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 
-use backup::{backup::BackupService, backup_config::BackupConfig, chunk_writer::ChunkWriter};
+use crate::backup::{
+    backup_config::BackupConfig, backup_metadata::BackupMetadata, backup_service::BackupService,
+    chunk_writer::ChunkWriter,
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -42,7 +46,7 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     // 16KB
-    let average_size = cli.average_size.unwrap_or(1024 * 16);
+    let average_size = cli.average_size.unwrap_or(DEFAULT_AVERAGE_SIZE);
     info!("Average size is {}", average_size);
 
     CombinedLogger::init(vec![TermLogger::new(
@@ -60,15 +64,23 @@ fn main() -> Result<()> {
             input_path,
             output_path,
         }) => {
-            let backup_config = &BackupConfig::new(average_size, input_path, output_path);
+            let backup_config = &BackupConfig::new(DEFAULT_AVERAGE_SIZE, input_path, output_path);
             let chunk_writer = ChunkWriter::new(backup_config);
-            let mut backup = BackupService::new(backup_config, &chunk_writer);
+            let mut backup_metadata = BackupMetadata::new();
+            let mut backup = BackupService::new(backup_config, &chunk_writer, &mut backup_metadata);
             backup.backup()?;
         }
         Some(Commands::Restore {
             input_path,
             output_path,
-        }) => {}
+        }) => {
+            let backup_config = BackupConfig::new(DEFAULT_AVERAGE_SIZE, input_path, output_path);
+            let chunk_writer = ChunkWriter::new(&backup_config);
+            let mut backup_metadata =
+                BackupMetadata::deserialize(Path::new(&backup_config.input_path.clone()))?;
+            let backup = BackupService::new(&backup_config, &chunk_writer, &mut backup_metadata);
+            backup.restore()?;
+        }
         None => {}
     }
 
