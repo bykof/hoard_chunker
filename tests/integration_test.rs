@@ -1,15 +1,14 @@
-use std::{fs, path::Path};
-
 use anyhow::Result;
-use hoard_chunker::{
-    backup::{
-        backup_config::BackupConfig, backup_metadata::BackupMetadata,
-        backup_service::BackupService, chunk_writer::ChunkWriter,
-    },
-    DEFAULT_AVERAGE_SIZE,
-};
+use hoard_chunker::backup::models::backup_config::BackupConfig;
+use hoard_chunker::backup::services::backup_service::BackupService;
+use hoard_chunker::backup::services::chunk_reader_writer::ChunkReaderWriter;
+use hoard_chunker::backup::services::chunk_storage::{ChunkStorage, LocalChunkStorage};
+use hoard_chunker::backup::services::file_chunker::FileChunker;
+use hoard_chunker::DEFAULT_AVERAGE_SIZE;
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
+use std::sync::{Arc, Mutex};
+use std::{fs, path::Path};
 use walkdir::WalkDir;
 
 #[test]
@@ -19,32 +18,53 @@ fn test_backup_and_restore() -> Result<()> {
         Config::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
-    )])
-    .unwrap();
+    )])?;
+    let threads = 4;
+    let chunk_reader_writer = Arc::new(ChunkReaderWriter::new());
+    let chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>> =
+        Arc::new(Mutex::new(Box::new(LocalChunkStorage::new())));
+
     let backup_input_path = "./tests/assets";
-    let backup_target_path = "./target/output";
-    let backup_config = &BackupConfig::new(
+    let backup_output_path = "./target/output";
+    let backup_config = Arc::new(BackupConfig::new(
         DEFAULT_AVERAGE_SIZE,
-        Path::new(backup_input_path),
-        Path::new(backup_target_path),
+        backup_input_path.as_ref(),
+        backup_output_path.as_ref(),
+        threads,
+    ));
+    let backup_file_chunker = Arc::new(Mutex::new(FileChunker::new(
+        backup_config.clone(),
+        chunk_reader_writer.clone(),
+        chunk_storage.clone(),
+    )));
+    let mut backup_service = BackupService::new(
+        backup_config.clone(),
+        backup_file_chunker.clone(),
+        chunk_reader_writer.clone(),
+        chunk_storage.clone(),
     );
-    let chunk_writer = ChunkWriter::new(backup_config);
-    let mut backup_metadata = BackupMetadata::new();
-    let mut backup_service = BackupService::new(backup_config, &chunk_writer, &mut backup_metadata);
     backup_service.backup()?;
 
-    let restore_input_path = Path::new(backup_target_path);
+    let restore_input_path = Path::new(backup_output_path);
     let restore_output_path = Path::new("./target/restored");
-    let restore_config = &BackupConfig::new(
+    let restore_config = Arc::new(BackupConfig::new(
         DEFAULT_AVERAGE_SIZE,
         &restore_input_path,
         &restore_output_path,
+        threads,
+    ));
+    let restore_file_chunker = Arc::new(Mutex::new(FileChunker::new(
+        restore_config.clone(),
+        chunk_reader_writer.clone(),
+        chunk_storage.clone(),
+    )));
+    let mut backup_service = BackupService::new(
+        restore_config.clone(),
+        restore_file_chunker.clone(),
+        chunk_reader_writer.clone(),
+        chunk_storage.clone(),
     );
-    let restore_chunk_writer = ChunkWriter::new(restore_config);
-    let mut restore_metadata = BackupMetadata::deserialize(&restore_input_path)?;
-    let restore_backup_service =
-        BackupService::new(restore_config, &restore_chunk_writer, &mut restore_metadata);
-    restore_backup_service.restore()?;
+    backup_service.restore()?;
 
     for entry in WalkDir::new(restore_output_path) {
         let dir_entry = entry?;

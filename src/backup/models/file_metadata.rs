@@ -1,16 +1,10 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
+use crate::backup::models::file_chunk::FileChunk;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Hash)]
-pub struct FileChunk {
-    pub hash: String,
-    pub offset: u64,
-    pub length: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileMetadata {
     pub path: String,
     // hash -> FileChunk
@@ -38,6 +32,10 @@ impl FileMetadata {
             });
 
         hasher.finalize().to_hex().to_string()
+    }
+
+    pub fn add_chunk(&mut self, hash: String, file_chunk: FileChunk) {
+        self.chunks.insert(hash, file_chunk);
     }
 }
 

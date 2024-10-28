@@ -1,0 +1,34 @@
+use std::path::Path;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BackupConfig {
+    pub average_size: u32,
+    pub input_path: String,
+    pub output_path: String,
+    pub threads: u32,
+}
+
+impl BackupConfig {
+    pub fn new(
+        average_size: u32,
+        input_path: &Path,
+        output_path: &Path,
+        threads: u32,
+    ) -> BackupConfig {
+        BackupConfig {
+            average_size,
+            input_path: input_path.display().to_string(),
+            output_path: output_path.display().to_string(),
+            threads,
+        }
+    }
+    pub fn min_size(&self) -> u32 {
+        self.average_size / 4
+    }
+
+    pub fn max_size(&self) -> u32 {
+        self.average_size / 4
+    }
+}
