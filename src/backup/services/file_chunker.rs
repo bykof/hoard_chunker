@@ -47,7 +47,7 @@ impl FileChunker {
                 self.chunk_reader_writer
                     .write_chunk(
                         &chunk.hash,
-                        chunk_data.data,
+                        &chunk_data.data,
                         self.backup_config.output_path.as_ref(),
                     )
                     .expect("cannot write chunk!");

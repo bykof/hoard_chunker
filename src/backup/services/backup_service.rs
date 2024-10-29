@@ -91,26 +91,26 @@ impl BackupService {
     pub fn backup(&mut self) -> Result<()> {
         self.walk()?;
 
-        let old_backup_metadata =
-            BackupMetadata::deserialize(Path::new(&self.backup_config.output_path))?;
+        // let old_backup_metadata =
+        //     BackupMetadata::deserialize(Path::new(&self.backup_config.output_path))?;
 
-        for (file_path, file_metadata) in self.file_metadata_map.iter() {
-            if let Some(old_file_metadata) = old_backup_metadata.file_metadata_map.get(file_path) {
-                if file_metadata.fingerprint() != old_file_metadata.fingerprint() {
-                    info!("Files: {} are not identical", file_path);
-
-                    let chunks: Vec<_> = file_metadata
-                        .chunks
-                        .keys()
-                        .filter(|key| !old_file_metadata.chunks.contains_key(*key))
-                        .collect();
-
-                    info!("New chunks: {:?}", chunks);
-                } else {
-                    // info!("File: {} are identical", file_path);
-                }
-            }
-        }
+        // for (file_path, file_metadata) in self.file_metadata_map.iter() {
+        //     if let Some(old_file_metadata) = old_backup_metadata.file_metadata_map.get(file_path) {
+        //         if file_metadata.fingerprint() != old_file_metadata.fingerprint() {
+        //             info!("Files: {} are not identical", file_path);
+        //
+        //             let chunks: Vec<_> = file_metadata
+        //                 .chunks
+        //                 .keys()
+        //                 .filter(|key| !old_file_metadata.chunks.contains_key(*key))
+        //                 .collect();
+        //
+        //             info!("New chunks: {:?}", chunks);
+        //         } else {
+        //             // info!("File: {} are identical", file_path);
+        //         }
+        //     }
+        // }
 
         info!(
             "Writing backup metadata to: {}...",
@@ -129,7 +129,7 @@ impl BackupService {
             self.backup_config.output_path
         );
         info!(
-            "Stored: {} MB",
+            "Read: {} MB",
             self.chunk_storage
                 .chunk_map()?
                 .values()
@@ -149,13 +149,18 @@ impl BackupService {
         self.symlinks = backup_metadata.symlinks.clone();
         self.file_metadata_map = backup_metadata.file_metadata_map.clone();
         self.chunk_storage
-            .clone()
             .load_chunk_map(backup_metadata.chunk_map.clone())?;
 
         for (output_file_path, file_metadata) in self.file_metadata_map.iter() {
-            debug!("Restoring: {}", output_file_path);
+            let output_filepath = output_file_path
+                .strip_prefix("/")
+                .unwrap_or(output_file_path);
+
             let moved_output_filepath =
-                PathBuf::from(&self.backup_config.output_path).join(output_file_path);
+                PathBuf::from(&self.backup_config.output_path).join(output_filepath);
+
+            debug!("Restoring: {}", moved_output_filepath.display());
+
             let mut writer = self
                 .chunk_reader_writer
                 .build_operator()?
@@ -171,6 +176,7 @@ impl BackupService {
                     .read_chunk(hash, self.backup_config.input_path.as_ref())?;
                 writer.write(chunk_data)?
             }
+            writer.close()?;
         }
         Ok(())
     }
