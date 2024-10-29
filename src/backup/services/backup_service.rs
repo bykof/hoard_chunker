@@ -189,9 +189,7 @@ impl BackupService {
                 .iter()
                 .sorted_by(|(_, a), (_, b)| Ord::cmp(&a.offset, &b.offset))
             {
-                let chunk_data = self
-                    .chunk_reader_writer
-                    .read_chunk(hash, self.backup_config.input_path.as_ref())?;
+                let chunk_data = self.chunk_storage.load_chunk(hash)?;
                 writer.write(chunk_data)?
             }
             writer.close()?;

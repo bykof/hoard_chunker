@@ -61,8 +61,6 @@ fn main() -> Result<()> {
     log::set_max_level(LevelFilter::Debug);
 
     let chunk_reader_writer = Arc::new(ChunkReaderWriter::new());
-    let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync + 'static>> =
-        Arc::new(Box::new(LocalChunkStorage::new()));
 
     match &cli.command {
         Some(Commands::Backup {
@@ -75,10 +73,10 @@ fn main() -> Result<()> {
                 output_path,
                 threads,
             ));
-
+            let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
+                Arc::new(Box::new(LocalChunkStorage::new(backup_config.clone())));
             let file_chunker = Arc::new(FileChunker::new(
                 backup_config.clone(),
-                chunk_reader_writer.clone(),
                 chunk_storage.clone(),
             ));
             let mut backup_service = BackupService::new(
@@ -99,10 +97,11 @@ fn main() -> Result<()> {
                 output_path,
                 threads,
             ));
+            let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
+                Arc::new(Box::new(LocalChunkStorage::new(backup_config.clone())));
 
             let file_chunker = Arc::new(FileChunker::new(
                 backup_config.clone(),
-                chunk_reader_writer.clone(),
                 chunk_storage.clone(),
             ));
             let mut backup_service = BackupService::new(

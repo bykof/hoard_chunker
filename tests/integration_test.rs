@@ -14,15 +14,13 @@ use walkdir::WalkDir;
 #[test]
 fn test_backup_and_restore() -> Result<()> {
     CombinedLogger::init(vec![TermLogger::new(
-        LevelFilter::Info,
+        LevelFilter::Debug,
         Config::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )])?;
     let threads = 4;
     let chunk_reader_writer = Arc::new(ChunkReaderWriter::new());
-    let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync + 'static>> =
-        Arc::new(Box::new(LocalChunkStorage::new()));
 
     let backup_input_path = "./tests/assets";
     let backup_output_path = "./target/output";
@@ -32,9 +30,10 @@ fn test_backup_and_restore() -> Result<()> {
         backup_output_path.as_ref(),
         threads,
     ));
+    let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
+        Arc::new(Box::new(LocalChunkStorage::new(backup_config.clone())));
     let backup_file_chunker = Arc::new(FileChunker::new(
         backup_config.clone(),
-        chunk_reader_writer.clone(),
         chunk_storage.clone(),
     ));
     let mut backup_service = BackupService::new(
@@ -53,9 +52,10 @@ fn test_backup_and_restore() -> Result<()> {
         &restore_output_path,
         threads,
     ));
+    let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
+        Arc::new(Box::new(LocalChunkStorage::new(restore_config.clone())));
     let restore_file_chunker = Arc::new(FileChunker::new(
         restore_config.clone(),
-        chunk_reader_writer.clone(),
         chunk_storage.clone(),
     ));
     let mut backup_service = BackupService::new(

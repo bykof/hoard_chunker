@@ -2,7 +2,6 @@ use crate::backup::models::backup_config::BackupConfig;
 use crate::backup::models::chunk::Chunk;
 use crate::backup::models::file_chunk::FileChunk;
 use crate::backup::models::file_metadata::FileMetadata;
-use crate::backup::services::chunk_reader_writer::ChunkReaderWriter;
 use crate::backup::services::chunk_storage::ChunkStorage;
 use anyhow::Result;
 use fastcdc::v2020::{ChunkData, StreamCDC};
@@ -12,18 +11,15 @@ use std::sync::Arc;
 
 pub struct FileChunker {
     backup_config: Arc<BackupConfig>,
-    chunk_reader_writer: Arc<ChunkReaderWriter>,
     chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
 }
 
 impl FileChunker {
     pub fn new(
         backup_config: Arc<BackupConfig>,
-        chunk_reader_writer: Arc<ChunkReaderWriter>,
         chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
     ) -> FileChunker {
         FileChunker {
-            chunk_reader_writer,
             backup_config,
             chunk_storage,
         }
@@ -44,12 +40,8 @@ impl FileChunker {
             let chunk = Chunk::from(&chunk_data);
 
             if !self.chunk_storage.chunk_exists(&chunk.hash) {
-                self.chunk_reader_writer
-                    .write_chunk(
-                        &chunk.hash,
-                        &chunk_data.data,
-                        self.backup_config.output_path.as_ref(),
-                    )
+                self.chunk_storage
+                    .store_chunk(&chunk.hash, &chunk_data.data)
                     .expect("cannot write chunk!");
                 self.chunk_storage.add_chunk(chunk.clone())?;
             }
