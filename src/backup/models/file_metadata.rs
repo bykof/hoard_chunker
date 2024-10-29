@@ -37,6 +37,10 @@ impl FileMetadata {
     pub fn add_chunk(&mut self, hash: String, file_chunk: FileChunk) {
         self.chunks.insert(hash, file_chunk);
     }
+
+    pub fn key(&self) -> String {
+        self.path.clone()
+    }
 }
 
 #[cfg(test)]

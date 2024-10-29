@@ -1,6 +1,6 @@
 use crate::backup::models::file_metadata::FileMetadata;
+use crate::backup::models::symlink::Symlink;
 use crate::backup::services::chunk_storage::ChunkMap;
-use crate::backup::symlink::Symlink;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{

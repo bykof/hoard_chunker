@@ -4,3 +4,4 @@ pub mod chunk;
 pub mod file_chunk;
 pub mod file_metadata;
 pub mod lib;
+pub mod symlink;

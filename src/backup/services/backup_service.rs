@@ -12,10 +12,10 @@ use walkdir::WalkDir;
 use crate::backup::models::backup_config::BackupConfig;
 use crate::backup::models::backup_metadata::{BackupMetadata, FileMetadataMap};
 use crate::backup::models::chunk::Chunk;
+use crate::backup::models::symlink::Symlink;
 use crate::backup::services::chunk_reader_writer::ChunkReaderWriter;
 use crate::backup::services::chunk_storage::ChunkStorage;
 use crate::backup::services::file_chunker::FileChunker;
-use crate::backup::symlink::Symlink;
 
 pub struct BackupService {
     backup_config: Arc<BackupConfig>,
@@ -70,17 +70,29 @@ impl BackupService {
             }
 
             let file_metadata = self.file_chunker.chunk_file(dir_entry.path())?;
-
-            self.file_metadata_map.insert(
-                dir_entry.path().display().to_string(),
-                file_metadata.clone(),
-            );
+            if self.file_metadata_map.contains_key(&file_metadata.key())
+                && file_metadata.fingerprint()
+                    != self
+                        .file_metadata_map
+                        .get(&file_metadata.key())
+                        .unwrap()
+                        .fingerprint()
+            {
+                info!("File {} changed!", file_metadata.key());
+                self.file_metadata_map
+                    .insert(file_metadata.key(), file_metadata.clone());
+            } else {
+                self.file_metadata_map
+                    .insert(file_metadata.key(), file_metadata.clone());
+            }
 
             for (hash, file_chunk) in file_metadata.chunks {
-                self.chunk_storage.add_chunk(Chunk {
-                    hash: hash.clone(),
-                    length: file_chunk.length,
-                })?
+                if !self.chunk_storage.chunk_exists(&hash) {
+                    self.chunk_storage.add_chunk(Chunk {
+                        hash: hash.clone(),
+                        length: file_chunk.length,
+                    })?
+                }
             }
         }
 
@@ -89,6 +101,12 @@ impl BackupService {
     }
 
     pub fn backup(&mut self) -> Result<()> {
+        let old_backup_metadata =
+            BackupMetadata::deserialize(Path::new(&self.backup_config.output_path))?;
+        self.symlinks = old_backup_metadata.symlinks;
+        self.file_metadata_map = old_backup_metadata.file_metadata_map;
+        self.chunk_storage
+            .load_chunk_map(old_backup_metadata.chunk_map)?;
         self.walk()?;
 
         // let old_backup_metadata =
