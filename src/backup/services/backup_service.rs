@@ -1,7 +1,8 @@
 use anyhow::Result;
 use itertools::Itertools;
 use log::{debug, info};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::time::Instant;
 use std::{
     fs::{self},
     path::{Path, PathBuf},
@@ -18,9 +19,9 @@ use crate::backup::symlink::Symlink;
 
 pub struct BackupService {
     backup_config: Arc<BackupConfig>,
-    file_chunker: Arc<Mutex<FileChunker>>,
+    file_chunker: Arc<FileChunker>,
     chunk_reader_writer: Arc<ChunkReaderWriter>,
-    chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>>,
+    chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
 
     symlinks: Vec<Symlink>,
     // filepath -> FileMetadata
@@ -30,9 +31,9 @@ pub struct BackupService {
 impl BackupService {
     pub fn new(
         backup_config: Arc<BackupConfig>,
-        file_chunker: Arc<Mutex<FileChunker>>,
+        file_chunker: Arc<FileChunker>,
         chunk_reader_writer: Arc<ChunkReaderWriter>,
-        chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>>,
+        chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
     ) -> BackupService {
         BackupService {
             backup_config,
@@ -45,10 +46,17 @@ impl BackupService {
     }
 
     pub fn walk(&mut self) -> Result<()> {
-        for dir_entry_result in WalkDir::new(&self.backup_config.input_path) {
+        info!(
+            "Walking directory: {} with {} threads...",
+            self.backup_config.input_path, self.backup_config.threads
+        );
+        let start = Instant::now();
+
+        for dir_entry_result in WalkDir::new(&self.backup_config.input_path).into_iter() {
             let dir_entry = dir_entry_result?;
             if dir_entry.path().is_dir() {
                 // currently directories are useless for us
+                debug!("skipping directory: {}", dir_entry.path().display());
                 continue;
             }
 
@@ -58,13 +66,10 @@ impl BackupService {
                     dir_entry.path().display().to_string(),
                     fs::read_link(dir_entry.path())?.display().to_string(),
                 ));
+                continue;
             }
 
-            let file_metadata = self
-                .file_chunker
-                .lock()
-                .unwrap()
-                .chunk_file(dir_entry.path())?;
+            let file_metadata = self.file_chunker.chunk_file(dir_entry.path())?;
 
             self.file_metadata_map.insert(
                 dir_entry.path().display().to_string(),
@@ -72,19 +77,19 @@ impl BackupService {
             );
 
             for (hash, file_chunk) in file_metadata.chunks {
-                self.chunk_storage.lock().unwrap().add_chunk(Chunk {
+                self.chunk_storage.add_chunk(Chunk {
                     hash: hash.clone(),
                     length: file_chunk.length,
                 })?
             }
         }
+
+        info!("Done walking - took {:?}", start.elapsed());
         Ok(())
     }
 
     pub fn backup(&mut self) -> Result<()> {
-        info!("Walking directory: {}...", self.backup_config.input_path);
         self.walk()?;
-        info!("Done walking directory");
 
         let old_backup_metadata =
             BackupMetadata::deserialize(Path::new(&self.backup_config.output_path))?;
@@ -113,9 +118,9 @@ impl BackupService {
         );
 
         let backup_metadata = BackupMetadata::new_with_data(
-            self.chunk_storage.lock().unwrap().chunk_map()?,
+            self.chunk_storage.chunk_map()?,
             self.file_metadata_map.clone(),
-            self.symlinks.clone(),
+            self.symlinks.clone().clone(),
         );
         backup_metadata.serialize(Path::new(&self.backup_config.output_path))?;
 
@@ -126,8 +131,6 @@ impl BackupService {
         info!(
             "Stored: {} MB",
             self.chunk_storage
-                .lock()
-                .unwrap()
                 .chunk_map()?
                 .values()
                 .map(|value| value.length)
@@ -146,8 +149,7 @@ impl BackupService {
         self.symlinks = backup_metadata.symlinks.clone();
         self.file_metadata_map = backup_metadata.file_metadata_map.clone();
         self.chunk_storage
-            .lock()
-            .unwrap()
+            .clone()
             .load_chunk_map(backup_metadata.chunk_map.clone())?;
 
         for (output_file_path, file_metadata) in self.file_metadata_map.iter() {

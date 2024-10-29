@@ -7,7 +7,7 @@ use hoard_chunker::backup::services::file_chunker::FileChunker;
 use hoard_chunker::DEFAULT_AVERAGE_SIZE;
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::{fs, path::Path};
 use walkdir::WalkDir;
 
@@ -21,8 +21,8 @@ fn test_backup_and_restore() -> Result<()> {
     )])?;
     let threads = 4;
     let chunk_reader_writer = Arc::new(ChunkReaderWriter::new());
-    let chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>> =
-        Arc::new(Mutex::new(Box::new(LocalChunkStorage::new())));
+    let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync + 'static>> =
+        Arc::new(Box::new(LocalChunkStorage::new()));
 
     let backup_input_path = "./tests/assets";
     let backup_output_path = "./target/output";
@@ -32,11 +32,11 @@ fn test_backup_and_restore() -> Result<()> {
         backup_output_path.as_ref(),
         threads,
     ));
-    let backup_file_chunker = Arc::new(Mutex::new(FileChunker::new(
+    let backup_file_chunker = Arc::new(FileChunker::new(
         backup_config.clone(),
         chunk_reader_writer.clone(),
         chunk_storage.clone(),
-    )));
+    ));
     let mut backup_service = BackupService::new(
         backup_config.clone(),
         backup_file_chunker.clone(),
@@ -53,11 +53,11 @@ fn test_backup_and_restore() -> Result<()> {
         &restore_output_path,
         threads,
     ));
-    let restore_file_chunker = Arc::new(Mutex::new(FileChunker::new(
+    let restore_file_chunker = Arc::new(FileChunker::new(
         restore_config.clone(),
         chunk_reader_writer.clone(),
         chunk_storage.clone(),
-    )));
+    ));
     let mut backup_service = BackupService::new(
         restore_config.clone(),
         restore_file_chunker.clone(),

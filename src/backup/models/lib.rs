@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 pub fn split_hash(hash: String) -> Vec<String> {
     hash.chars()
         .collect::<Vec<char>>()
-        .chunks(2)
+        .chunks(4)
         .map(|chunk| chunk.iter().collect())
         .collect()
 }

@@ -13,7 +13,7 @@ use hoard_chunker::DEFAULT_AVERAGE_SIZE;
 use log::LevelFilter;
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -61,8 +61,8 @@ fn main() -> Result<()> {
     log::set_max_level(LevelFilter::Debug);
 
     let chunk_reader_writer = Arc::new(ChunkReaderWriter::new());
-    let chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>> =
-        Arc::new(Mutex::new(Box::new(LocalChunkStorage::new())));
+    let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync + 'static>> =
+        Arc::new(Box::new(LocalChunkStorage::new()));
 
     match &cli.command {
         Some(Commands::Backup {
@@ -76,11 +76,11 @@ fn main() -> Result<()> {
                 threads,
             ));
 
-            let file_chunker = Arc::new(Mutex::new(FileChunker::new(
+            let file_chunker = Arc::new(FileChunker::new(
                 backup_config.clone(),
                 chunk_reader_writer.clone(),
                 chunk_storage.clone(),
-            )));
+            ));
             let mut backup_service = BackupService::new(
                 backup_config.clone(),
                 file_chunker.clone(),
@@ -100,11 +100,11 @@ fn main() -> Result<()> {
                 threads,
             ));
 
-            let file_chunker = Arc::new(Mutex::new(FileChunker::new(
+            let file_chunker = Arc::new(FileChunker::new(
                 backup_config.clone(),
                 chunk_reader_writer.clone(),
                 chunk_storage.clone(),
-            )));
+            ));
             let mut backup_service = BackupService::new(
                 backup_config.clone(),
                 file_chunker.clone(),

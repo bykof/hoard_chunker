@@ -8,19 +8,19 @@ use anyhow::Result;
 use fastcdc::v2020::{ChunkData, StreamCDC};
 use std::fs::File;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct FileChunker {
     backup_config: Arc<BackupConfig>,
     chunk_reader_writer: Arc<ChunkReaderWriter>,
-    chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>>,
+    chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
 }
 
 impl FileChunker {
     pub fn new(
         backup_config: Arc<BackupConfig>,
         chunk_reader_writer: Arc<ChunkReaderWriter>,
-        chunk_storage: Arc<Mutex<Box<dyn ChunkStorage + Send + Sync + 'static>>>,
+        chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
     ) -> FileChunker {
         FileChunker {
             chunk_reader_writer,
@@ -29,7 +29,7 @@ impl FileChunker {
         }
     }
 
-    pub fn chunk_file(&mut self, file_path: &Path) -> Result<FileMetadata> {
+    pub fn chunk_file(&self, file_path: &Path) -> Result<FileMetadata> {
         let file = File::open(file_path).expect("cannot open file!");
         let mut file_metadata = FileMetadata::new(file_path.display().to_string());
         let chunker = StreamCDC::new(
@@ -43,17 +43,18 @@ impl FileChunker {
             let chunk_data: ChunkData = chunk_data_result?;
             let chunk = Chunk::from(&chunk_data);
 
-            let mut unlocked_chunk_storage = self.chunk_storage.lock().unwrap();
-            if !unlocked_chunk_storage.chunk_exists(&chunk.hash) {
-                self.chunk_reader_writer.write_chunk(
-                    &chunk.hash,
-                    chunk_data.data,
-                    self.backup_config.output_path.as_ref(),
-                )?;
-                unlocked_chunk_storage.add_chunk(chunk.clone())?;
+            if !self.chunk_storage.chunk_exists(&chunk.hash) {
+                self.chunk_reader_writer
+                    .write_chunk(
+                        &chunk.hash,
+                        chunk_data.data,
+                        self.backup_config.output_path.as_ref(),
+                    )
+                    .expect("cannot write chunk!");
+                self.chunk_storage.add_chunk(chunk.clone())?;
             }
 
-            file_metadata.chunks.insert(
+            file_metadata.add_chunk(
                 chunk.hash.to_string(),
                 FileChunk {
                     hash: chunk.hash.to_string(),
@@ -62,6 +63,7 @@ impl FileChunker {
                 },
             );
         }
+
         Ok(file_metadata)
     }
 }
