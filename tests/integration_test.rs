@@ -4,6 +4,7 @@ use hoard_chunker::backup::services::backup_service::BackupService;
 use hoard_chunker::backup::services::chunk_reader_writer::ChunkReaderWriter;
 use hoard_chunker::backup::services::chunk_storage::{ChunkStorage, LocalChunkStorage};
 use hoard_chunker::backup::services::file_chunker::FileChunker;
+use hoard_chunker::backup::services::restore_service::RestoreService;
 use hoard_chunker::DEFAULT_AVERAGE_SIZE;
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
@@ -39,7 +40,6 @@ fn test_backup_and_restore() -> Result<()> {
     let mut backup_service = BackupService::new(
         backup_config.clone(),
         backup_file_chunker.clone(),
-        chunk_reader_writer.clone(),
         chunk_storage.clone(),
     );
     backup_service.backup()?;
@@ -54,17 +54,13 @@ fn test_backup_and_restore() -> Result<()> {
     ));
     let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
         Arc::new(Box::new(LocalChunkStorage::new(restore_config.clone())));
-    let restore_file_chunker = Arc::new(FileChunker::new(
+
+    let mut restore_service = RestoreService::new(
         restore_config.clone(),
         chunk_storage.clone(),
-    ));
-    let mut backup_service = BackupService::new(
-        restore_config.clone(),
-        restore_file_chunker.clone(),
         chunk_reader_writer.clone(),
-        chunk_storage.clone(),
     );
-    backup_service.restore()?;
+    restore_service.restore()?;
 
     for entry in WalkDir::new(restore_output_path) {
         let dir_entry = entry?;

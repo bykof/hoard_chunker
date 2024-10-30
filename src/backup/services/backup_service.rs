@@ -1,11 +1,10 @@
 use anyhow::Result;
-use itertools::Itertools;
 use log::{debug, info};
 use std::sync::Arc;
 use std::time::Instant;
 use std::{
     fs::{self},
-    path::{Path, PathBuf},
+    path::Path,
 };
 use walkdir::WalkDir;
 
@@ -13,14 +12,12 @@ use crate::backup::models::backup_config::BackupConfig;
 use crate::backup::models::backup_metadata::{BackupMetadata, FileMetadataMap};
 use crate::backup::models::chunk::Chunk;
 use crate::backup::models::symlink::Symlink;
-use crate::backup::services::chunk_reader_writer::ChunkReaderWriter;
 use crate::backup::services::chunk_storage::ChunkStorage;
 use crate::backup::services::file_chunker::FileChunker;
 
 pub struct BackupService {
     backup_config: Arc<BackupConfig>,
     file_chunker: Arc<FileChunker>,
-    chunk_reader_writer: Arc<ChunkReaderWriter>,
     chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
 
     symlinks: Vec<Symlink>,
@@ -32,13 +29,11 @@ impl BackupService {
     pub fn new(
         backup_config: Arc<BackupConfig>,
         file_chunker: Arc<FileChunker>,
-        chunk_reader_writer: Arc<ChunkReaderWriter>,
         chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>>,
     ) -> BackupService {
         BackupService {
             backup_config,
             file_chunker,
-            chunk_reader_writer,
             chunk_storage,
             symlinks: Default::default(),
             file_metadata_map: Default::default(),
@@ -158,42 +153,6 @@ impl BackupService {
                 / 1024
         );
 
-        Ok(())
-    }
-
-    pub fn restore(&mut self) -> Result<()> {
-        let backup_metadata =
-            BackupMetadata::deserialize(Path::new(&self.backup_config.input_path))?;
-        self.symlinks = backup_metadata.symlinks.clone();
-        self.file_metadata_map = backup_metadata.file_metadata_map.clone();
-        self.chunk_storage
-            .load_chunk_map(backup_metadata.chunk_map.clone())?;
-
-        for (output_file_path, file_metadata) in self.file_metadata_map.iter() {
-            let output_filepath = output_file_path
-                .strip_prefix("/")
-                .unwrap_or(output_file_path);
-
-            let moved_output_filepath =
-                PathBuf::from(&self.backup_config.output_path).join(output_filepath);
-
-            debug!("Restoring: {}", moved_output_filepath.display());
-
-            let mut writer = self
-                .chunk_reader_writer
-                .build_operator()?
-                .writer(moved_output_filepath.to_str().unwrap())?;
-
-            for (hash, _) in file_metadata
-                .chunks
-                .iter()
-                .sorted_by(|(_, a), (_, b)| Ord::cmp(&a.offset, &b.offset))
-            {
-                let chunk_data = self.chunk_storage.load_chunk(hash)?;
-                writer.write(chunk_data)?
-            }
-            writer.close()?;
-        }
         Ok(())
     }
 }
