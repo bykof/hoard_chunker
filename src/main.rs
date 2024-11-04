@@ -25,6 +25,9 @@ struct Cli {
     #[arg(short, long)]
     threads: Option<u32>,
 
+    #[arg(short, long)]
+    log_level: Option<LevelFilter>,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -50,10 +53,11 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let average_size = cli.average_size.unwrap_or(DEFAULT_AVERAGE_SIZE);
+    let log_level = cli.log_level.unwrap_or(LevelFilter::Info);
     let threads = cli.threads.unwrap_or(num_cpus::get() as u32);
 
     CombinedLogger::init(vec![TermLogger::new(
-        LevelFilter::Info,
+        log_level,
         Config::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
