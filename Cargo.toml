@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.90"
+anyhow = "1.0.92"
 blake3 = "1.5.4"
 bytebuffer = "2.3.0"
 clap = { version = "4.5.20", features = ["derive"] }
@@ -12,11 +12,14 @@ fastcdc = "3.1.0"
 itertools = "0.13.0"
 log = "0.4.22"
 num_cpus = "1.16.0"
-opendal = { version = "0.50.0", features = ["services-fs"] }
+opendal = { version = "0.50.1", features = ["services-fs"] }
 redis = "0.27.5"
-serde = { version = "1.0.211", features = ["derive"] }
+serde = { version = "1.0.214", features = ["derive"] }
 serde_json = "1.0.132"
 simplelog = "0.12.2"
 walkdir = "2.5.0"
 zstd = "0.13.2"
 rayon = "1.10.0"
+
+[profile.release]
+lto = true
