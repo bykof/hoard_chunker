@@ -29,13 +29,13 @@ impl FileChunker {
         let file = File::open(file_path).expect("cannot open file!");
         let mut file_metadata = FileMetadata::new(file_path.display().to_string());
         let chunker = StreamCDC::new(
-            file,
+            &file,
             self.backup_config.min_size(),
             self.backup_config.average_size,
             self.backup_config.max_size(),
         );
 
-        for chunk_data_result in chunker {
+        for chunk_data_result in chunker.into_iter() {
             let chunk_data: ChunkData = chunk_data_result?;
             let chunk = Chunk::from(&chunk_data);
 
