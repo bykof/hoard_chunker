@@ -6,15 +6,14 @@ facilitating easier processing, storage, or transfer for backups.
 
 ## Features:
 
-Backup: Backup files from `input_dir` into `output_dir` and chunk them with `FastCDC`.
-Restore: Restore chunks from `input_dir` into `output_dir` to backed up files.
+- Backup: Backup files from `input_dir` into `output_dir` and chunk them with `FastCDC`.
+- Restore: Restore chunks from `input_dir` into `output_dir` to backed up files.
 
 ### Setup
 
 Clone the Repository:
 
 ```sh
-Copy code
 git clone https://github.com/bykof/hoard_chunker.git
 cd hoard_chunker
 ```
