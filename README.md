@@ -24,6 +24,24 @@ Build the Project:
 cargo build --release
 ```
 
+### Usage
+
+```shell
+Usage: hoard_chunker [OPTIONS] [COMMAND]
+
+Commands:
+  backup   
+  restore  
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -a, --average-size <AVERAGE_SIZE>  
+  -t, --threads <THREADS>            
+  -l, --log-level <LOG_LEVEL>        
+  -h, --help                         Print help
+  -V, --version                      Print version
+```
+
 ### Backup
 
 ```sh
