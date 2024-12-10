@@ -9,7 +9,7 @@ use std::{
 use walkdir::WalkDir;
 
 use crate::backup::models::backup_config::BackupConfig;
-use crate::backup::models::backup_metadata::{BackupMetadata, FileMetadataMap};
+use crate::backup::models::backup_metadata::{BackupMetadata, FileMetadataMap, SerializationType};
 use crate::backup::models::chunk::Chunk;
 use crate::backup::models::symlink::Symlink;
 use crate::backup::services::chunk_storage::ChunkStorage;
@@ -41,10 +41,7 @@ impl BackupService {
     }
 
     pub fn walk(&mut self) -> Result<()> {
-        info!(
-            "Walking directory: {} with {} threads...",
-            self.backup_config.input_path, self.backup_config.threads
-        );
+        info!("Walking directory: {}...", self.backup_config.input_path,);
         let start = Instant::now();
 
         for dir_entry_result in WalkDir::new(&self.backup_config.input_path).into_iter() {
@@ -135,7 +132,10 @@ impl BackupService {
             self.file_metadata_map.clone(),
             self.symlinks.clone().clone(),
         );
-        backup_metadata.serialize(Path::new(&self.backup_config.output_path))?;
+        backup_metadata.serialize(
+            Path::new(&self.backup_config.output_path),
+            SerializationType::MessagePack,
+        )?;
 
         info!(
             "Done writing backup metadata to: {}",

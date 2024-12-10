@@ -20,7 +20,6 @@ fn test_backup_and_restore() -> Result<()> {
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )])?;
-    let threads = 4;
     let chunk_reader_writer = Arc::new(ChunkReaderWriter::new());
 
     let backup_input_path = "./tests/assets";
@@ -29,7 +28,6 @@ fn test_backup_and_restore() -> Result<()> {
         DEFAULT_AVERAGE_SIZE,
         backup_input_path.as_ref(),
         backup_output_path.as_ref(),
-        threads,
     ));
     let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
         Arc::new(Box::new(LocalChunkStorage::new(backup_config.clone())));
@@ -50,7 +48,6 @@ fn test_backup_and_restore() -> Result<()> {
         DEFAULT_AVERAGE_SIZE,
         &restore_input_path,
         &restore_output_path,
-        threads,
     ));
     let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
         Arc::new(Box::new(LocalChunkStorage::new(restore_config.clone())));

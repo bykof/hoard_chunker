@@ -36,7 +36,6 @@ Commands:
 
 Options:
   -a, --average-size <AVERAGE_SIZE>  
-  -t, --threads <THREADS>            
   -l, --log-level <LOG_LEVEL>        
   -h, --help                         Print help
   -V, --version                      Print version

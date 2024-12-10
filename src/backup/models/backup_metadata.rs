@@ -1,7 +1,8 @@
 use crate::backup::models::file_metadata::FileMetadata;
 use crate::backup::models::symlink::Symlink;
 use crate::backup::services::chunk_storage::ChunkMap;
-use anyhow::Result;
+use anyhow::{Error, Result};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -12,6 +13,11 @@ use std::{
 
 pub type FileMetadataMap = HashMap<String, FileMetadata>;
 
+pub enum SerializationType {
+    JSON,
+    MessagePack,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupMetadata {
     pub chunk_map: ChunkMap,
@@ -21,7 +27,7 @@ pub struct BackupMetadata {
 }
 
 impl BackupMetadata {
-    const BACKUP_METADATA_FILE: &'static str = "metadata.json";
+    const BACKUP_METADATA_FILE: &'static str = "metadata";
 
     pub fn new() -> BackupMetadata {
         BackupMetadata {
@@ -43,12 +49,27 @@ impl BackupMetadata {
         }
     }
 
-    pub fn serialize(&self, directory_path: &Path) -> Result<()> {
+    pub fn serialize(
+        &self,
+        directory_path: &Path,
+        serialization_type: SerializationType,
+    ) -> Result<()> {
         fs::create_dir_all(directory_path)?;
         let mut file = fs::File::create(directory_path.join(Self::BACKUP_METADATA_FILE))?;
-        let json_data = serde_json::to_string(&self)?;
+        let bytes: Vec<u8>;
 
-        Ok(file.write_all(json_data.as_bytes())?)
+        match serialization_type {
+            SerializationType::JSON => {
+                let json_data = serde_json::to_vec(&self)?;
+                bytes = json_data.clone()
+            }
+            SerializationType::MessagePack => {
+                let message_pack_data = rmp_serde::to_vec(&self)?;
+                bytes = message_pack_data.clone()
+            }
+        }
+
+        Ok(file.write_all(bytes.as_slice())?)
     }
 
     pub fn deserialize(directory_path: &Path) -> Result<BackupMetadata> {
@@ -58,12 +79,25 @@ impl BackupMetadata {
             return Ok(BackupMetadata::new());
         }
 
-        let file = fs::File::open(path)?;
-        let reader = BufReader::new(file);
+        debug!("Trying deserialize as json");
+        let json_result = serde_json::from_reader::<BufReader<File>, BackupMetadata>(
+            BufReader::new(File::open(path.clone())?),
+        );
+        if json_result.is_ok() {
+            return Ok(json_result?);
+        }
 
-        Ok(serde_json::from_reader::<BufReader<File>, BackupMetadata>(
-            reader,
-        )?)
+        debug!("Trying deserialize as messagepack");
+        let msgpck_result = rmp_serde::from_read::<BufReader<File>, BackupMetadata>(
+            BufReader::new(File::open(path.clone())?),
+        );
+        if msgpck_result.is_ok() {
+            return Ok(msgpck_result?);
+        }
+
+        Err(Error::msg(
+            "Could not deserialize backup metadata".to_string(),
+        ))
     }
 
     pub fn insert_symlink(&mut self, symlink: Symlink) {

@@ -23,9 +23,6 @@ struct Cli {
     average_size: Option<u32>,
 
     #[arg(short, long)]
-    threads: Option<u32>,
-
-    #[arg(short, long)]
     log_level: Option<LevelFilter>,
 
     #[command(subcommand)]
@@ -54,7 +51,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let average_size = cli.average_size.unwrap_or(DEFAULT_AVERAGE_SIZE);
     let log_level = cli.log_level.unwrap_or(LevelFilter::Info);
-    let threads = cli.threads.unwrap_or(num_cpus::get() as u32);
 
     CombinedLogger::init(vec![TermLogger::new(
         log_level,
@@ -72,12 +68,7 @@ fn main() -> Result<()> {
             input_path,
             output_path,
         }) => {
-            let backup_config = Arc::new(BackupConfig::new(
-                average_size,
-                input_path,
-                output_path,
-                threads,
-            ));
+            let backup_config = Arc::new(BackupConfig::new(average_size, input_path, output_path));
             let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
                 Arc::new(Box::new(LocalChunkStorage::new(backup_config.clone())));
             let file_chunker = Arc::new(FileChunker::new(
@@ -95,12 +86,7 @@ fn main() -> Result<()> {
             input_path,
             output_path,
         }) => {
-            let backup_config = Arc::new(BackupConfig::new(
-                average_size,
-                input_path,
-                output_path,
-                threads,
-            ));
+            let backup_config = Arc::new(BackupConfig::new(average_size, input_path, output_path));
             let chunk_storage: Arc<Box<dyn ChunkStorage + Send + Sync>> =
                 Arc::new(Box::new(LocalChunkStorage::new(backup_config.clone())));
 
